@@ -1,0 +1,11 @@
+# Ignore build files and outputs
+*.o
+*.out
+*.exe
+phase1
+output.json
+
+# Editor / system files
+*.swp
+*.tmp
+.DS_Store

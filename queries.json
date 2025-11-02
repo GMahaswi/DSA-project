@@ -1,0 +1,10 @@
+{
+    "meta": {"id": "q1"},
+    "events": [
+        {"type":"shortest_path","id":1,"source":0,"target":2,"mode":"distance"},
+        {"type":"modify_edge","id":2,"edge_id":101,"new_length":1.0,"new_average_time":1.0},
+        {"type":"shortest_path","id":3,"source":0,"target":2,"mode":"distance"},
+        {"type":"remove_edge","id":4,"edge_id":100},
+        {"type":"shortest_path","id":5,"source":0,"target":2,"mode":"distance"}
+    ]
+}

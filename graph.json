@@ -1,0 +1,12 @@
+{
+    "meta": {"id": "g1"},
+    "nodes": [
+        {"id":0,"lat":0,"lon":0,"pois":["Cafe"]},
+        {"id":1,"lat":0,"lon":1},
+        {"id":2,"lat":1,"lon":1}
+    ],
+    "edges": [
+        {"id":100,"u":0,"v":1,"length":1.0,"average_time":1.0,"oneway":false,"road_type":"primary"},
+        {"id":101,"u":1,"v":2,"length":2.0,"average_time":2.0,"oneway":false,"road_type":"secondary"}
+    ]
+}
