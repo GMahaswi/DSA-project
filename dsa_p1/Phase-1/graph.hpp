@@ -10,6 +10,7 @@ struct Edge {
     bool oneway;
     string road_type;
     vector<double> speed_profile;
+    bool active = true;
 };
 
 class Graph {
@@ -18,6 +19,7 @@ public:
     unordered_map<int, pair<double, double>> coords; // node → (lat, lon)
     unordered_map<int, vector<string>> pois; // node → list of POIs
     unordered_map<int, Edge> edge_map; // edge_id → Edge
+    unordered_map<int, Edge> removed_edges; // ✅ backup for removed roads
 
     void loadGraph(const string& filename);
     void removeEdge(int edge_id);

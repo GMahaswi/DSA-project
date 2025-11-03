@@ -1,24 +1,55 @@
 #include "queries.hpp"
-#include <queue>
+using namespace std;
 
-PathResult shortestPath(Graph& G, int src, int tgt, string mode) {
+/*
+    Phase-2 version:
+    - Supports time-dependent edge weights using 96-slot speed profiles.
+    - Uses departure_time (in minutes or slot index) to pick appropriate slot.
+    - Falls back to average_time if speed_profile is missing.
+*/
+
+PathResult shortestPath(Graph& G, int src, int tgt, string mode, int departure_slot) {
     unordered_map<int, double> dist;
     unordered_map<int, int> parent;
 
-    for (auto& [node, _] : G.coords) dist[node] = 1e18;
-    dist[src] = 0;
+    for (auto& [node, _] : G.coords)
+        dist[node] = 1e18;
+    dist[src] = 0.0;
 
     using P = pair<double, int>;
     priority_queue<P, vector<P>, greater<P>> pq;
-    pq.push({0, src});
+    pq.push({0.0, src});
 
     while (!pq.empty()) {
-        auto [d, u] = pq.top(); pq.pop();
+        auto [d, u] = pq.top();
+        pq.pop();
         if (d != dist[u]) continue;
         if (u == tgt) break;
 
         for (auto& e : G.adj[u]) {
-            double w = (mode == "distance") ? e.length : e.average_time;
+            double w = 0.0;
+
+            // --- TIME-DEPENDENT HANDLING ---
+            if (mode == "distance") {
+                w = e.length;
+            } 
+            else if (mode == "time") {
+                if (e.speed_profile.empty()) {
+                    w = e.average_time;  // fallback if no profile
+                } else {
+                    // each speed_profile[i] = speed in m/s or km/h at that slot
+                    int slot = departure_slot % 96; 
+                    double speed = e.speed_profile[slot];
+                    if (speed <= 0) speed = 1; // avoid div-by-zero
+                    w = e.length / speed;
+                }
+            } 
+            else {
+                cerr << "Warning: Unknown mode '" << mode 
+                    << "', defaulting to distance.\n";
+                w = e.length;
+            }
+
             if (dist[e.v] > d + w) {
                 dist[e.v] = d + w;
                 parent[e.v] = u;
@@ -29,16 +60,37 @@ PathResult shortestPath(Graph& G, int src, int tgt, string mode) {
 
     PathResult res;
     res.cost = dist[tgt];
-    vector<int> path;
+
     if (dist[tgt] < 1e18) {
         int cur = tgt;
         while (cur != src) {
-            path.push_back(cur);
+            res.path.push_back(cur);
             cur = parent[cur];
         }
-        path.push_back(src);
-        reverse(path.begin(), path.end());
+        res.path.push_back(src);
+        reverse(res.path.begin(), res.path.end());
     }
-    res.path = path;
+
     return res;
+}
+
+// Convert result into structured JSON for output.json
+json pathToJson(const PathResult& res, int src, int tgt, string mode, int departure_slot) {
+    json j;
+
+    if (res.path.empty()) {
+        j["status"] = "unreachable";
+        j["source"] = src;
+        j["target"] = tgt;
+    } else {
+        j["status"] = "success";
+        j["source"] = src;
+        j["target"] = tgt;
+        j["path"] = res.path;
+        j["total_cost"] = res.cost;
+        j["mode"] = mode;
+        j["departure_slot"] = departure_slot;
+    }
+
+    return j;
 }

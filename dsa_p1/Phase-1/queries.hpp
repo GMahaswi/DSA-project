@@ -8,4 +8,5 @@ struct PathResult {
     vector<int> path;
 };
 
-PathResult shortestPath(Graph& G, int src, int tgt, string mode);
+PathResult shortestPath(Graph& G, int src, int tgt, string mode, int departure_slot = 0);
+json pathToJson(const PathResult& res, int src, int tgt, string mode, int departure_slot = 0);

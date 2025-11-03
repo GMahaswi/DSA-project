@@ -49,6 +49,9 @@ void Graph::loadGraph(const string& filename) {
 void Graph::removeEdge(int edge_id) {
     if (!edge_map.count(edge_id)) return;
     Edge e = edge_map[edge_id];
+    removed_edges[edge_id] = e;
+    edge_map.erase(edge_id);
+    
     auto& vec = adj[e.u];
     vec.erase(remove_if(vec.begin(), vec.end(), [&](const Edge& ed) {
         return ed.id == edge_id;
@@ -63,22 +66,41 @@ void Graph::removeEdge(int edge_id) {
 }
 
 void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
-    if (!edge_map.count(edge_id)) return;
-    Edge& e = edge_map[edge_id];
-    e.length = new_length;
-    e.average_time = new_avg_time;
+    if (edge_map.count(edge_id)) {
+        Edge& e = edge_map[edge_id];
+        if (new_length > 0) e.length = new_length;
+        if (new_avg_time > 0) e.average_time = new_avg_time;
+        e.active = true;
 
-    // update both adjacency lists
-    for (Edge& ed : adj[e.u])
-        if (ed.id == edge_id) {
-            ed.length = new_length;
-            ed.average_time = new_avg_time;
-        }
-    if (!e.oneway) {
-        for (Edge& ed : adj[e.v])
-            if (ed.v == e.u && ed.id == edge_id) {
-                ed.length = new_length;
-                ed.average_time = new_avg_time;
+        for (Edge& ed : adj[e.u])
+            if (ed.id == edge_id) {
+                ed.length = e.length;
+                ed.average_time = e.average_time;
             }
+        if (!e.oneway) {
+            for (Edge& ed : adj[e.v])
+                if (ed.v == e.u && ed.id == edge_id) {
+                    ed.length = e.length;
+                    ed.average_time = e.average_time;
+                }
+        }
+    }
+    // Case 2: Edge was removed → re-add
+    else if (removed_edges.count(edge_id)) {
+        Edge e = removed_edges[edge_id];
+        if (new_length > 0) e.length = new_length;
+        if (new_avg_time > 0) e.average_time = new_avg_time;
+        e.active = true;
+
+        adj[e.u].push_back(e);
+        if (!e.oneway) {
+            Edge rev = e;
+            rev.u = e.v;
+            rev.v = e.u;
+            adj[rev.u].push_back(rev);
+        }
+
+        edge_map[edge_id] = e;
+        removed_edges.erase(edge_id);
     }
 }

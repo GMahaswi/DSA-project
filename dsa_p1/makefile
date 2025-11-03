@@ -1,38 +1,17 @@
-# ==========================
-# Makefile for RoutingSystem
-# Phase-1 Build Configuration
-# ==========================
-
 CXX = g++
-CXXFLAGS = -std=c++17 -O2 -Wall
+CXXFLAGS = -std=c++17 -IPhase-1/nlohmann
 
-# Directories
-PHASE1_DIR = Phase-1
+SRC_DIR = Phase-1
+OBJ_DIR = Phase-1
+TARGET = phase1
 
-# Files
-PHASE1_SRC = $(wildcard $(PHASE1_DIR)/*.cpp)
-PHASE1_OBJ = $(PHASE1_SRC:.cpp=.o)
-TARGET1 = phase1
+OBJS = $(OBJ_DIR)/graph.o $(OBJ_DIR)/queries.o $(OBJ_DIR)/main.o
 
-# ==========================
-# Default target
-# ==========================
-all: $(TARGET1)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 
-# Build phase1 executable
-$(TARGET1): $(PHASE1_OBJ)
-	$(CXX) $(CXXFLAGS) $(PHASE1_OBJ) -o $(TARGET1)
-
-# Compile .cpp → .o
-$(PHASE1_DIR)/%.o: $(PHASE1_DIR)/%.cpp
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Run with example JSONs
-run: $(TARGET1)
-	./$(TARGET1) graph.json queries.json
-
-# Clean build files
 clean:
-	rm -f $(PHASE1_OBJ) $(TARGET1)
-
-.PHONY: all clean run
+	rm -f $(OBJ_DIR)/*.o $(TARGET)

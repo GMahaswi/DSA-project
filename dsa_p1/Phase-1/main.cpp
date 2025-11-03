@@ -1,62 +1,87 @@
-#include "graph.hpp"
-#include "queries.hpp"
-#include "nlohmann/json.hpp"
-using namespace std;
+#include <nlohmann/json.hpp>
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include "graph.hpp" 
+/*
+    Add other includes that you require, only write code wherever indicated
+*/
+
 using json = nlohmann::json;
+Graph g;
+json process_query(const json& query) {
+    json result;
+
+    string type = query["type"];
+
+    if (type == "remove_edge") {
+        int edge_id = query["edge_id"];
+        g.removeEdge(edge_id);
+        result["status"] = "edge_removed";
+        result["edge_id"] = edge_id;
+    } 
+    else if (type == "modify_edge") {
+        int edge_id = query["edge_id"];
+        double new_length = query.value("new_length", -1.0);
+        double new_avg_time = query.value("new_avg_time", -1.0);
+        g.modifyEdge(edge_id, new_length, new_avg_time);
+        result["status"] = "edge_modified";
+        result["edge_id"] = edge_id;
+    } 
+    else {
+        result["status"] = "unknown_query_type";
+    }
+
+    return result;
+}
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        cerr << "Usage: ./phase1 <graph.json> <queries.json>\n";
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <graph.json> <queries.json>" << std::endl;
         return 1;
     }
 
-    string graph_file = argv[1];
-    string query_file = argv[2];
+    // Read graph from first file
+    /*
+        Add your graph reading and processing code here
+        Initialize any classes and data structures needed for query processing
+    */
 
-    Graph G;
-    G.loadGraph(graph_file);
+    // Read queries from second file
+    g.loadGraph(argv[1]);
 
-    ifstream qf(query_file);
-    if (!qf.is_open()) {
-        cerr << "Error: Cannot open " << query_file << endl;
+    std::ifstream queries_file(argv[2]);
+    if (!queries_file.is_open()) {
+        std::cerr << "Failed to open " << argv[2] << std::endl;
+        return 1;
+    }
+    json queries_json;
+    queries_file >> queries_json;
+
+    std::ofstream output_file("output.json");
+    if (!output_file.is_open()) {
+        std::cerr << "Failed to open output.json for writing" << std::endl;
         return 1;
     }
 
-    json queries;
-    qf >> queries;
-    json output;
-    output["meta"] = queries["meta"];
-    output["results"] = json::array();
+    for (const auto& query : queries_json) {
+        auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (auto& ev : queries["events"]) {
-        string type = ev["type"];
-        json res;
-        res["id"] = ev["id"];
+        /*
+            Add your query processing code here
+            Each query should return a json object which should be printed to sample.json
+        */
 
-        if (type == "shortest_path") {
-            int src = ev["source"], tgt = ev["target"];
-            string mode = ev["mode"];
-            PathResult ans = shortestPath(G, src, tgt, mode);
-            res["path"] = ans.path;
-            res["cost"] = ans.cost;
-        }
-        else if (type == "remove_edge") {
-            int edge_id = ev["edge_id"];
-            G.removeEdge(edge_id);
-            res["status"] = "removed";
-        }
-        else if (type == "modify_edge") {
-            int edge_id = ev["edge_id"];
-            double new_length = ev["new_length"];
-            double new_avg_time = ev["new_average_time"];
-            G.modifyEdge(edge_id, new_length, new_avg_time);
-            res["status"] = "modified";
-        }
-        else {
-            res["error"] = "Unknown query type";
-        }
-        output["results"].push_back(res);
+        // Answer each query replacing the function process_query using 
+        // whatever function or class methods that you have implemented
+        json result = process_query(query);
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        result["processing_time"] = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+
+        output_file << result.dump(4) << '\n';
     }
 
-    cout << output.dump(4);
+    output_file.close();
+    return 0;
 }
