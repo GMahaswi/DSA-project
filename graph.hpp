@@ -4,7 +4,7 @@
 #include <cmath>
 #include <queue>
 #include <utility>
-
+#include <unordered_set>
 struct Node {
     int id;
     double x, y;  // coordinates
