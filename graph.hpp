@@ -5,6 +5,12 @@
 #include <queue>
 #include <utility>
 #include <unordered_set>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 struct Node {
     int id;
     double x, y;  // coordinates
@@ -25,10 +31,22 @@ public:
     }
 
     double euclideanDistance(int a, int b) const {
+        const double R=6371.0;
         auto &na = nodes.at(a);
         auto &nb = nodes.at(b);
-        double dx = na.x - nb.x;
-        double dy = na.y - nb.y;
-        return std::sqrt(dx * dx + dy * dy);
+
+        double lat1=na.y*M_PI/180.0;
+        double lon1=na.x*M_PI/180.0;
+        double lat2=nb.y*M_PI/180.0;
+        double lon2=nb.x*M_PI/180.0;
+
+        double dLat=lat2-lat1;
+        double dLon=lon2-lon1;
+
+        double h=sin(dLat/2.0)*sin(dLat/2.0)+cos(lat1)*cos(lat2)*sin(dLon/2.0)*sin(dLon/2.0);
+
+        double c=2.0*atan2(sqrt(h),sqrt(1-h));
+        
+        return R*c;
     }
 };
