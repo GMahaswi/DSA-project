@@ -12,6 +12,7 @@ void Graph::loadGraph(const string& filename) {
     json data;
     f >> data;
 
+    // Load nodes
     for (auto& node : data["nodes"]) {
         int id = node["id"];
         double lat = node["lat"], lon = node["lon"];
@@ -21,6 +22,7 @@ void Graph::loadGraph(const string& filename) {
                 pois[id].push_back(p);
     }
 
+    // Load edges
     for (auto& e : data["edges"]) {
         Edge edge;
         edge.id = e["id"];
@@ -46,26 +48,28 @@ void Graph::loadGraph(const string& filename) {
     }
 }
 
-void Graph::removeEdge(int edge_id) {
-    if (!edge_map.count(edge_id)) return;
+bool Graph::removeEdge(int edge_id) {
+    if (!edge_map.count(edge_id)) return false;
     Edge e = edge_map[edge_id];
     removed_edges[edge_id] = e;
     edge_map.erase(edge_id);
     
     auto& vec = adj[e.u];
-    vec.erase(remove_if(vec.begin(), vec.end(), [&](const Edge& ed) {
-        return ed.id == edge_id;
-    }), vec.end());
+    vec.erase(remove_if(vec.begin(), vec.end(),
+                        [&](const Edge& ed) { return ed.id == edge_id; }),
+              vec.end());
     if (!e.oneway) {
         auto& back = adj[e.v];
-        back.erase(remove_if(back.begin(), back.end(), [&](const Edge& ed) {
-            return ed.v == e.u && ed.id == edge_id;
-        }), back.end());
+        back.erase(remove_if(back.begin(), back.end(),
+                             [&](const Edge& ed) {
+                                 return ed.v == e.u && ed.id == edge_id;
+                             }),
+                   back.end());
     }
-    edge_map.erase(edge_id);
+    return true;
 }
 
-void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
+bool Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) { // ✅ return type changed
     if (edge_map.count(edge_id)) {
         Edge& e = edge_map[edge_id];
         if (new_length > 0) e.length = new_length;
@@ -84,9 +88,8 @@ void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
                     ed.average_time = e.average_time;
                 }
         }
-    }
-    // Case 2: Edge was removed → re-add
-    else if (removed_edges.count(edge_id)) {
+        return true;
+    } else if (removed_edges.count(edge_id)) {
         Edge e = removed_edges[edge_id];
         if (new_length > 0) e.length = new_length;
         if (new_avg_time > 0) e.average_time = new_avg_time;
@@ -102,5 +105,91 @@ void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
 
         edge_map[edge_id] = e;
         removed_edges.erase(edge_id);
+        return true;
     }
+    return false;
+}
+
+double Graph::euclideanDistance(int a, int b) const {
+    const double R = 6371.0;
+    auto &na = coords.at(a);
+    auto &nb = coords.at(b);
+
+    double lat1 = na.first * M_PI / 180.0;
+    double lon1 = na.second * M_PI / 180.0;
+    double lat2 = nb.first * M_PI / 180.0;
+    double lon2 = nb.second * M_PI / 180.0;
+
+    double dLat = lat2 - lat1;
+    double dLon = lon2 - lon1;
+
+    double h = sin(dLat / 2.0) * sin(dLat / 2.0) +
+               cos(lat1) * cos(lat2) *
+               sin(dLon / 2.0) * sin(dLon / 2.0);
+
+    double c = 2.0 * atan2(sqrt(h), sqrt(1 - h));
+    return R * c;
+}
+double Graph::euclideanDistanceLatLon(double lat1, double lon1, double lat2, double lon2) const {
+    const double R = 6371.0; // km
+    lat1 = lat1 * M_PI / 180.0;
+    lon1 = lon1 * M_PI / 180.0;
+    lat2 = lat2 * M_PI / 180.0;
+    lon2 = lon2 * M_PI / 180.0;
+
+    double dLat = lat2 - lat1;
+    double dLon = lon2 - lon1;
+
+    double h = sin(dLat/2) * sin(dLat/2) + cos(lat1) * cos(lat2) * sin(dLon/2) * sin(dLon/2);
+    double c = 2 * atan2(sqrt(h), sqrt(1-h));
+
+    return R * c;
+}
+
+tuple<bool, double, vector<int>> Graph::shortestPath(
+    int source, int target,
+    const string& mode,
+    const unordered_set<int>& forbidden_nodes,
+    const unordered_set<string>& forbidden_roads
+) const {
+    unordered_map<int, double> dist;
+    unordered_map<int, int> parent;
+    for (auto& p : coords)
+        dist[p.first] = numeric_limits<double>::infinity();
+    dist[source] = 0;
+
+    using P = pair<double, int>;
+    priority_queue<P, vector<P>, greater<P>> pq;
+    pq.push({0, source});
+
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+        if (d > dist[u]) continue;
+        if (u == target) break;
+        if (forbidden_nodes.count(u)) continue;
+        if (!adj.count(u)) continue;
+
+        for (auto& e : adj.at(u)) {
+            if (!e.active) continue;
+            if (forbidden_roads.count(e.road_type)) continue;
+            double w = (mode == "time") ? e.average_time : e.length;
+            if (dist[e.v] > d + w) {
+                dist[e.v] = d + w;
+                parent[e.v] = u;
+                pq.push({dist[e.v], e.v});
+            }
+        }
+    }
+
+    if (dist[target] == numeric_limits<double>::infinity())
+        return {false, -1.0, {}};
+
+    vector<int> path;
+    for (int cur = target; cur != source; cur = parent[cur])
+        path.push_back(cur);
+    path.push_back(source);
+    reverse(path.begin(), path.end());
+
+    return {true, dist[target], path};
 }
