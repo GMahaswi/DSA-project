@@ -1,12 +1,11 @@
-// #pragma once
-// #include "graph.hpp"
-// #include "nlohmann/json.hpp"
-// using json = nlohmann::json;
+#pragma once
+#include "graph.hpp"
+#include "knn.hpp"
+#include "nlohmann/json.hpp"
+#include <bits/stdc++.h>
 
-// struct PathResult {
-//     double cost;
-//     vector<int> path;
-// };
+using json = nlohmann::json;
 
-// PathResult shortestPath(Graph& G, int src, int tgt, string mode, int departure_slot = 0);
-// json pathToJson(const PathResult& res, int src, int tgt, string mode, int departure_slot = 0);
+json shortest_path_query(const Graph& g, const json& query);
+json knn_query(const Graph& g, const json& query);
+json process_query(const Graph& g, const json& query);
