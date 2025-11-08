@@ -5,6 +5,7 @@
 #include <queue>
 #include <utility>
 #include <unordered_set>
+using namespace std;
 struct Node {
     int id;
     double x, y;  // coordinates
@@ -14,7 +15,8 @@ class Graph {
 public:
     std::unordered_map<int, Node> nodes;
     std::unordered_map<int, std::vector<std::pair<int, double>>> adj; // neighbor, weight
-
+    
+    std::unordered_map<int,unordered_map<int,double>>edgeweight;
     void addNode(int id, double x, double y) {
         nodes[id] = {id, x, y};
     }

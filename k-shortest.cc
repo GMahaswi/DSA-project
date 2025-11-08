@@ -1,139 +1,117 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <algorithm>
+#include <limits>
+#include <utility>
+#include <set>
+#include <map> 
 using namespace std;
 
 struct Edge {
-    int to;
-    double weight;
+    int v;
+    double w;
 };
+unordered_map<int, vector<Edge>> graph;
+unordered_map<int, unordered_map<int, double>> edgeW;
+for (auto &[u, adj] : graph)
+    for (auto &e : adj)
+        edgeW[u][e.v] = e.w;
 
-struct Path {
-    vector<int> nodes;
-    double cost;
-    bool operator<(const Path& other) const {
-        return cost > other.cost; // for min-heap
-    }
-};
-
-double pathCost(const vector<int>& path, const vector<vector<Edge>>& graph) {
-    double cost = 0;
-    for (int i = 0; i + 1 < path.size(); i++) {
-        int u = path[i], v = path[i + 1];
-        bool found = false;
-        for (auto& e : graph[u]) {
-            if (e.to == v) {
-                cost += e.weight;
-                found = true;
-                break;
-            }
-        }
-        if (!found) return 1e9; // invalid path
-    }
-    return cost;
-}
-
-// Dijkstra for shortest path
-vector<int> dijkstraPath(int src, int dest, const vector<vector<Edge>>& graph) {
-    int n = graph.size();
-    vector<double> dist(n, 1e9);
-    vector<int> parent(n, -1);
-    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<>> pq;
-
+vector<int> dijkstraPath(int src, int dest, double &cost) {
+    unordered_map<int, double> dist;
+    unordered_map<int, int> parent;
+    for (auto &p : graph) dist[p.first] = 1e18;
+    using P = pair<double,int>;
+    priority_queue<P, vector<P>, greater<P>> pq;
     dist[src] = 0;
     pq.push({0, src});
-
+    
     while (!pq.empty()) {
         auto [d, u] = pq.top(); pq.pop();
+        if (u == dest) break;
         if (d > dist[u]) continue;
-        for (auto& e : graph[u]) {
-            if (dist[e.to] > d + e.weight) {
-                dist[e.to] = d + e.weight;
-                parent[e.to] = u;
-                pq.push({dist[e.to], e.to});
+        for (auto &e : graph[u]) {
+            if (dist[e.v] > d + e.w) {
+                dist[e.v] = d + e.w;
+                parent[e.v] = u;
+                pq.push({dist[e.v], e.v});
             }
         }
     }
 
     vector<int> path;
-    if (dist[dest] == 1e9) return path;
-    for (int v = dest; v != -1; v = parent[v]) path.push_back(v);
+    if (dist[dest] == 1e18) return path;
+    for (int v = dest; v != src; v = parent[v]) path.push_back(v);
+    path.push_back(src);
     reverse(path.begin(), path.end());
+    cost = dist[dest];
     return path;
 }
 
-// Yen's algorithm
-vector<vector<int>> yenKShortestPaths(const vector<vector<Edge>>& graph, int src, int dest, int K) {
-    vector<vector<int>> A; // shortest paths
-    vector<Path> B;        // potential paths
+vector<pair<vector<int>, double>> yenKShortest(int src, int dest, int K) {
+    vector<pair<vector<int>, double>> A; // result paths
+    vector<pair<vector<int>, double>> B; // candidates
 
-    // 1st shortest path
-    vector<int> firstPath = dijkstraPath(src, dest, graph);
+    double firstCost;
+    vector<int> firstPath = dijkstraPath(src, dest, firstCost);
     if (firstPath.empty()) return A;
-    A.push_back(firstPath);
+    A.push_back({firstPath, firstCost});
 
-    for (int k = 1; k < K; ++k) {
-        const vector<int>& prevPath = A[k - 1];
-        for (int i = 0; i + 1 < prevPath.size(); ++i) {
+    for (int k = 1; k < K; k++) {
+        const vector<int> &prevPath = A[k-1].first;
+        
+        
+        for (int i = 0; i < (int)prevPath.size()-1; i++) {
             int spurNode = prevPath[i];
-            vector<int> rootPath(prevPath.begin(), prevPath.begin() + i + 1);
+            vector<int> rootPath(prevPath.begin(), prevPath.begin()+i+1);
 
-            // backup and remove edges/nodes
-            vector<vector<Edge>> tempGraph = graph;
-            for (auto& path : A) {
-                if (path.size() > i && equal(rootPath.begin(), rootPath.end(), path.begin())) {
-                    int u = path[i], v = path[i + 1];
-                    tempGraph[u].erase(
-                        remove_if(tempGraph[u].begin(), tempGraph[u].end(),
-                                  [&](const Edge& e){ return e.to == v; }),
-                        tempGraph[u].end()
-                    );
+            // Remove edges that share the same prefix
+            vector<pair<int,int>> removed;
+            for (auto &p : A) {
+                auto &path = p.first;
+                if (path.size() > i+1 && equal(rootPath.begin(), rootPath.end(), path.begin()))
+                {
+                    int u = path[i], v = path[i+1];
+                    auto &adj = graph[u];
+                    auto it = find_if(adj.begin(), adj.end(), [&](Edge &e){return e.v == v;});
+                    if (it != adj.end()) {
+                        removed.push_back({u,v});
+                        adj.erase(it);
+                    }
                 }
             }
 
-            vector<int> spurPath = dijkstraPath(spurNode, dest, tempGraph);
-            if (spurPath.empty()) continue;
+            double spurCost;
+            vector<int> spurPath = dijkstraPath(spurNode, dest, spurCost);
+            if (!spurPath.empty()) {
+                vector<int> totalPath = rootPath;
+                totalPath.insert(totalPath.end(), spurPath.begin()+1, spurPath.end());
+                                        
+                double totalCost = 0;
+                for (int j = 0; j+1 < totalPath.size(); j++) {
+                    int u = totalPath[j], v = totalPath[j+1];
+                    for (auto &e : graph[u])
+                        if (e.v == v) totalCost += e.w;
+                }
+                bool exists = false;
+                for (auto &b : B) if (b.first == totalPath) exists = true;
+                if (!exists)
+                    B.push_back({totalPath, totalCost});
+            }
 
-            vector<int> totalPath = rootPath;
-            totalPath.pop_back();
-            totalPath.insert(totalPath.end(), spurPath.begin(), spurPath.end());
-
-            double cost = pathCost(totalPath, graph);
-            B.push_back({totalPath, cost});
+            // Restore edges
+            for (auto &[u,v] : removed) {
+                graph[u].push_back({v, 1}); // replace correct weight if stored separately
+            }
         }
 
         if (B.empty()) break;
-        sort(B.begin(), B.end());
-        A.push_back(B.front().nodes);
-        B.erase(B.begin());
+        auto it = min_element(B.begin(), B.end(), [](auto &a, auto &b){return a.second < b.second;});
+        A.push_back(*it);
+        B.erase(it);
     }
 
     return A;
-}
-
-int main() {
-    int n, m;
-    cout << "Enter number of nodes and edges: ";
-    cin >> n >> m;
-    vector<vector<Edge>> graph(n);
-
-    cout << "Enter edges (u v w):" << endl;
-    for (int i = 0; i < m; i++) {
-        int u, v; double w;
-        cin >> u >> v >> w;
-        graph[u].push_back({v, w});
-        // Uncomment next line if undirected
-        // graph[v].push_back({u, w});
-    }
-
-    int src, dest, K;
-    cout << "Enter source, target, and N (number of shortest paths): ";
-    cin >> src >> dest >> K;
-
-    vector<vector<int>> paths = yenKShortestPaths(graph, src, dest, K);
-
-    cout << "\nTop " << paths.size() << " shortest paths:\n";
-    for (int i = 0; i < paths.size(); i++) {
-        cout << "Path " << i + 1 << ": ";
-        for (int node : paths[i]) cout << node << " ";
-        cout << " | Cost = " << pathCost(paths[i], graph) << endl;
-    }
 }
