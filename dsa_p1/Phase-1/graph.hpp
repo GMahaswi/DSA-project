@@ -19,9 +19,10 @@ public:
     unordered_map<int, pair<double, double>> coords; // node → (lat, lon)
     unordered_map<int, vector<string>> pois; // node → list of POIs
     unordered_map<int, Edge> edge_map; // edge_id → Edge
-    unordered_map<int, Edge> removed_edges; // ✅ backup for removed roads
+    unordered_map<int, Edge> removed_edges; // backup for removed roads
 
     void loadGraph(const string& filename);
     void removeEdge(int edge_id);
     void modifyEdge(int edge_id, double new_length, double new_avg_time);
+    double euclideanDistance(int a, int b) const;
 };

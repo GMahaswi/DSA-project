@@ -12,6 +12,7 @@ void Graph::loadGraph(const string& filename) {
     json data;
     f >> data;
 
+    // Load nodes
     for (auto& node : data["nodes"]) {
         int id = node["id"];
         double lat = node["lat"], lon = node["lon"];
@@ -21,6 +22,7 @@ void Graph::loadGraph(const string& filename) {
                 pois[id].push_back(p);
     }
 
+    // Load edges
     for (auto& e : data["edges"]) {
         Edge edge;
         edge.id = e["id"];
@@ -53,16 +55,17 @@ void Graph::removeEdge(int edge_id) {
     edge_map.erase(edge_id);
     
     auto& vec = adj[e.u];
-    vec.erase(remove_if(vec.begin(), vec.end(), [&](const Edge& ed) {
-        return ed.id == edge_id;
-    }), vec.end());
+    vec.erase(remove_if(vec.begin(), vec.end(),
+                        [&](const Edge& ed) { return ed.id == edge_id; }),
+              vec.end());
     if (!e.oneway) {
         auto& back = adj[e.v];
-        back.erase(remove_if(back.begin(), back.end(), [&](const Edge& ed) {
-            return ed.v == e.u && ed.id == edge_id;
-        }), back.end());
+        back.erase(remove_if(back.begin(), back.end(),
+                             [&](const Edge& ed) {
+                                 return ed.v == e.u && ed.id == edge_id;
+                             }),
+                   back.end());
     }
-    edge_map.erase(edge_id);
 }
 
 void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
@@ -84,9 +87,7 @@ void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
                     ed.average_time = e.average_time;
                 }
         }
-    }
-    // Case 2: Edge was removed → re-add
-    else if (removed_edges.count(edge_id)) {
+    } else if (removed_edges.count(edge_id)) {
         Edge e = removed_edges[edge_id];
         if (new_length > 0) e.length = new_length;
         if (new_avg_time > 0) e.average_time = new_avg_time;
@@ -103,4 +104,26 @@ void Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) {
         edge_map[edge_id] = e;
         removed_edges.erase(edge_id);
     }
+}
+
+double Graph::euclideanDistance(int a, int b) const {
+    const double R = 6371.0; // Earth radius in km
+
+    auto &na = coords.at(a);
+    auto &nb = coords.at(b);
+
+    double lat1 = na.first * M_PI / 180.0;
+    double lon1 = na.second * M_PI / 180.0;
+    double lat2 = nb.first * M_PI / 180.0;
+    double lon2 = nb.second * M_PI / 180.0;
+
+    double dLat = lat2 - lat1;
+    double dLon = lon2 - lon1;
+
+    double h = sin(dLat / 2.0) * sin(dLat / 2.0) +
+               cos(lat1) * cos(lat2) *
+               sin(dLon / 2.0) * sin(dLon / 2.0);
+
+    double c = 2.0 * atan2(sqrt(h), sqrt(1 - h));
+    return R * c; // distance in km
 }
