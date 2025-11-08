@@ -130,6 +130,21 @@ double Graph::euclideanDistance(int a, int b) const {
     double c = 2.0 * atan2(sqrt(h), sqrt(1 - h));
     return R * c;
 }
+double Graph::euclideanDistanceLatLon(double lat1, double lon1, double lat2, double lon2) const {
+    const double R = 6371.0; // km
+    lat1 = lat1 * M_PI / 180.0;
+    lon1 = lon1 * M_PI / 180.0;
+    lat2 = lat2 * M_PI / 180.0;
+    lon2 = lon2 * M_PI / 180.0;
+
+    double dLat = lat2 - lat1;
+    double dLon = lon2 - lon1;
+
+    double h = sin(dLat/2) * sin(dLat/2) + cos(lat1) * cos(lat2) * sin(dLon/2) * sin(dLon/2);
+    double c = 2 * atan2(sqrt(h), sqrt(1-h));
+
+    return R * c;
+}
 
 tuple<bool, double, vector<int>> Graph::shortestPath(
     int source, int target,

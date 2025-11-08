@@ -34,4 +34,5 @@ public:
         const unordered_set<int>& forbidden_nodes,
         const unordered_set<string>& forbidden_roads
     ) const;
+    double euclideanDistanceLatLon(double lat1, double lon1, double lat2, double lon2) const;
 };
