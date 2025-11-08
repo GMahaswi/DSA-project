@@ -1,96 +1,129 @@
-// #include "queries.hpp"
-// using namespace std;
+#include "queries.hpp"
+#include <queue>
+#include <limits>
+#include <unordered_map>
+#include <set>
+#include <vector>
+#include <algorithm>
+using namespace std;
+using json = nlohmann::json;
 
-// /*
-//     Phase-2 version:
-//     - Supports time-dependent edge weights using 96-slot speed profiles.
-//     - Uses departure_time (in minutes or slot index) to pick appropriate slot.
-//     - Falls back to average_time if speed_profile is missing.
-// */
+// ---- Shortest Path ----
+json shortest_path_query(const Graph& g, const json& query) {
+    json result;
+    result["id"] = query["id"];
 
-// PathResult shortestPath(Graph& G, int src, int tgt, string mode, int departure_slot) {
-//     unordered_map<int, double> dist;
-//     unordered_map<int, int> parent;
+    int source = query["source"];
+    int target = query["target"];
+    string mode = query.value("mode", "distance");
 
-//     for (auto& [node, _] : G.coords)
-//         dist[node] = 1e18;
-//     dist[src] = 0.0;
+    set<int> forbidden_nodes;
+    set<string> forbidden_roads;
 
-//     using P = pair<double, int>;
-//     priority_queue<P, vector<P>, greater<P>> pq;
-//     pq.push({0.0, src});
+    if (query.contains("constraints")) {
+        auto cons = query["constraints"];
+        if (cons.contains("forbidden_nodes"))
+            for (int n : cons["forbidden_nodes"])
+                forbidden_nodes.insert(n);
+        if (cons.contains("forbidden_road_types"))
+            for (const auto& rt : cons["forbidden_road_types"])
+                forbidden_roads.insert(rt);
+    }
 
-//     while (!pq.empty()) {
-//         auto [d, u] = pq.top();
-//         pq.pop();
-//         if (d != dist[u]) continue;
-//         if (u == tgt) break;
+    if (forbidden_nodes.count(source) || forbidden_nodes.count(target)) {
+        result["possible"] = false;
+        return result;
+    }
 
-//         for (auto& e : G.adj[u]) {
-//             double w = 0.0;
+    const double INF = numeric_limits<double>::infinity();
+    unordered_map<int, double> dist;
+    unordered_map<int, int> parent;
 
-//             // --- TIME-DEPENDENT HANDLING ---
-//             if (mode == "distance") {
-//                 w = e.length;
-//             } 
-//             else if (mode == "time") {
-//                 if (e.speed_profile.empty()) {
-//                     w = e.average_time;  // fallback if no profile
-//                 } else {
-//                     // each speed_profile[i] = speed in m/s or km/h at that slot
-//                     int slot = departure_slot % 96; 
-//                     double speed = e.speed_profile[slot];
-//                     if (speed <= 0) speed = 1; // avoid div-by-zero
-//                     w = e.length / speed;
-//                 }
-//             } 
-//             else {
-//                 cerr << "Warning: Unknown mode '" << mode 
-//                     << "', defaulting to distance.\n";
-//                 w = e.length;
-//             }
+    for (const auto& [id, _] : g.coords)
+        dist[id] = INF;
 
-//             if (dist[e.v] > d + w) {
-//                 dist[e.v] = d + w;
-//                 parent[e.v] = u;
-//                 pq.push({dist[e.v], e.v});
-//             }
-//         }
-//     }
+    dist[source] = 0.0;
+    using P = pair<double, int>;
+    priority_queue<P, vector<P>, greater<P>> pq;
+    pq.push({0.0, source});
 
-//     PathResult res;
-//     res.cost = dist[tgt];
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+        if (d > dist[u]) continue;
+        if (u == target) break;
+        if (!g.adj.count(u)) continue;
 
-//     if (dist[tgt] < 1e18) {
-//         int cur = tgt;
-//         while (cur != src) {
-//             res.path.push_back(cur);
-//             cur = parent[cur];
-//         }
-//         res.path.push_back(src);
-//         reverse(res.path.begin(), res.path.end());
-//     }
+        for (const auto& edge : g.adj.at(u)) {
+            if (!edge.active) continue;
+            if (forbidden_nodes.count(edge.v)) continue;
+            if (forbidden_roads.count(edge.road_type)) continue;
 
-//     return res;
-// }
+            double weight = (mode == "time") ? edge.average_time : edge.length;
+            if (dist[u] + weight < dist[edge.v]) {
+                dist[edge.v] = dist[u] + weight;
+                parent[edge.v] = u;
+                pq.push({dist[edge.v], edge.v});
+            }
+        }
+    }
 
-// // Convert result into structured JSON for output.json
-// json pathToJson(const PathResult& res, int src, int tgt, string mode, int departure_slot) {
-//     json j;
+    if (dist[target] == INF) {
+        result["possible"] = false;
+        return result;
+    }
 
-//     if (res.path.empty()) {
-//         j["status"] = "unreachable";
-//         j["source"] = src;
-//         j["target"] = tgt;
-//     } else {
-//         j["status"] = "success";
-//         j["source"] = src;
-//         j["target"] = tgt;
-//         j["path"] = res.path;
-//         j["total_cost"] = res.cost;
-//         j["mode"] = mode;
-//         j["departure_slot"] = departure_slot;
-//     }
+    vector<int> path;
+    for (int v = target; v != source; v = parent[v])
+        path.push_back(v);
+    path.push_back(source);
+    reverse(path.begin(), path.end());
 
-//     return j;
-// }
+    result["possible"] = true;
+    if (mode == "time")
+        result["minimum_time"] = dist[target];
+    else
+        result["minimum_distance"] = dist[target];
+    result["path"] = path;
+    return result;
+}
+
+// ---- KNN ----
+json knn_query(const Graph& g, const json& query) {
+    json result;
+    result["id"] = query["id"];
+    int source = query["source"];
+    int k = query["k"];
+    string mode = query.value("mode", "euclidean");
+
+    vector<pair<int, double>> neighbors;
+    if (mode == "euclidean")
+        neighbors = KNN_Euclidean(g, source, k);
+    else
+        neighbors = KNN_ShortestPath(g, source, k);
+
+    result["neighbors"] = json::array();
+    for (auto& [node, dist] : neighbors) {
+        json obj;
+        obj["node"] = node;
+        obj["distance"] = dist;
+        result["neighbors"].push_back(obj);
+    }
+
+    return result;
+}
+
+// ---- Dispatcher ----
+json process_query(const Graph& g, const json& query) {
+    string type = query.value("type", "");
+
+    if (type == "shortest_path")
+        return shortest_path_query(g, query);
+    else if (type == "knn")
+        return knn_query(g, query);
+    else {
+        json r;
+        r["status"] = "unknown_query_type";
+        return r;
+    }
+}

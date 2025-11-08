@@ -3,44 +3,20 @@
 #include <fstream>
 #include <chrono>
 #include "graph.hpp" 
+#include "queries.hpp"
 /*
     Add other includes that you require, only write code wherever indicated
 */
 
 using json = nlohmann::json;
-Graph g;
-json process_query(const json& query) {
-    json result;
-
-    string type = query["type"];
-
-    if (type == "remove_edge") {
-        int edge_id = query["edge_id"];
-        g.removeEdge(edge_id);
-        result["status"] = "edge_removed";
-        result["edge_id"] = edge_id;
-    } 
-    else if (type == "modify_edge") {
-        int edge_id = query["edge_id"];
-        double new_length = query.value("new_length", -1.0);
-        double new_avg_time = query.value("new_avg_time", -1.0);
-        g.modifyEdge(edge_id, new_length, new_avg_time);
-        result["status"] = "edge_modified";
-        result["edge_id"] = edge_id;
-    } 
-    else {
-        result["status"] = "unknown_query_type";
-    }
-
-    return result;
-}
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         std::cerr << "Usage: " << argv[0] << " <graph.json> <queries.json>" << std::endl;
         return 1;
     }
-
+    Graph g;
+    g.loadGraph(argv[1]);
     // Read graph from first file
     /*
         Add your graph reading and processing code here
@@ -48,7 +24,6 @@ int main(int argc, char* argv[]) {
     */
 
     // Read queries from second file
-    g.loadGraph(argv[1]);
 
     std::ifstream queries_file(argv[2]);
     if (!queries_file.is_open()) {
@@ -74,7 +49,7 @@ int main(int argc, char* argv[]) {
 
         // Answer each query replacing the function process_query using 
         // whatever function or class methods that you have implemented
-        json result = process_query(query);
+        json result = process_query(g,query);
 
         auto end_time = std::chrono::high_resolution_clock::now();
         result["processing_time"] = std::chrono::duration<double, std::milli>(end_time - start_time).count();
