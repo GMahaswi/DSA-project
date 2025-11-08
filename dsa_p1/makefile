@@ -15,7 +15,7 @@ SRC_DIR1 = Phase-1
 OBJ_DIR1 = Phase-1
 TARGET1 = phase1
 
-OBJS1 = $(OBJ_DIR1)/graph.o $(OBJ_DIR1)/queries.o $(OBJ_DIR1)/main.o
+OBJS1 = $(OBJ_DIR1)/graph.o $(OBJ_DIR1)/knn.o $(OBJ_DIR1)/queries.o $(OBJ_DIR1)/main.o
 
 $(TARGET1): $(OBJS1)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(TARGET1) $(OBJS1)

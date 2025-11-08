@@ -1,6 +1,8 @@
 #pragma once
 #include <bits/stdc++.h>
+#include "nlohmann/json.hpp"
 using namespace std;
+using json = nlohmann::json;
 
 struct Edge {
     int id;
@@ -22,7 +24,14 @@ public:
     unordered_map<int, Edge> removed_edges; // backup for removed roads
 
     void loadGraph(const string& filename);
-    void removeEdge(int edge_id);
-    void modifyEdge(int edge_id, double new_length, double new_avg_time);
+    bool removeEdge(int edge_id);
+    bool modifyEdge(int edge_id, double new_length, double new_avg_time); // ✅ changed from void → bool
     double euclideanDistance(int a, int b) const;
+    
+    tuple<bool, double, vector<int>> shortestPath(
+        int source, int target,
+        const string& mode,
+        const unordered_set<int>& forbidden_nodes,
+        const unordered_set<string>& forbidden_roads
+    ) const;
 };

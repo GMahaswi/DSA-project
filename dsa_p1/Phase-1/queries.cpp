@@ -1,129 +1,95 @@
 #include "queries.hpp"
-#include <queue>
-#include <limits>
-#include <unordered_map>
-#include <set>
-#include <vector>
-#include <algorithm>
+#include <bits/stdc++.h>
 using namespace std;
 using json = nlohmann::json;
 
-// ---- Shortest Path ----
-json shortest_path_query(const Graph& g, const json& query) {
+json process_query(Graph& g, const json& query) {
     json result;
     result["id"] = query["id"];
 
-    int source = query["source"];
-    int target = query["target"];
-    string mode = query.value("mode", "distance");
+    string type = query["type"];
 
-    set<int> forbidden_nodes;
-    set<string> forbidden_roads;
-
-    if (query.contains("constraints")) {
-        auto cons = query["constraints"];
-        if (cons.contains("forbidden_nodes"))
-            for (int n : cons["forbidden_nodes"])
-                forbidden_nodes.insert(n);
-        if (cons.contains("forbidden_road_types"))
-            for (const auto& rt : cons["forbidden_road_types"])
-                forbidden_roads.insert(rt);
-    }
-
-    if (forbidden_nodes.count(source) || forbidden_nodes.count(target)) {
-        result["possible"] = false;
+    // 1️⃣ REMOVE EDGE
+    if (type == "remove_edge") {
+        int edge_id = query["edge_id"];
+        bool done = g.removeEdge(edge_id);
+        result["done"] = done;
         return result;
     }
 
-    const double INF = numeric_limits<double>::infinity();
-    unordered_map<int, double> dist;
-    unordered_map<int, int> parent;
+    // 2️⃣ MODIFY EDGE
+    else if (type == "modify_edge") {
+        int edge_id = query["edge_id"];
+        bool done = false;
 
-    for (const auto& [id, _] : g.coords)
-        dist[id] = INF;
+        if (query.contains("patch")) {
+            double new_length = query["patch"].value("length", -1.0);
+            double new_avg_time = query["patch"].value("average_time", -1.0);
+            done = g.modifyEdge(edge_id, new_length, new_avg_time);
+        }
 
-    dist[source] = 0.0;
-    using P = pair<double, int>;
-    priority_queue<P, vector<P>, greater<P>> pq;
-    pq.push({0.0, source});
+        result["done"] = done;
+        return result;
+    }
 
-    while (!pq.empty()) {
-        auto [d, u] = pq.top();
-        pq.pop();
-        if (d > dist[u]) continue;
-        if (u == target) break;
-        if (!g.adj.count(u)) continue;
+    // 3️⃣ SHORTEST PATH
+    else if (type == "shortest_path") {
+        int source = query["source"];
+        int target = query["target"];
+        string mode = query["mode"];
 
-        for (const auto& edge : g.adj.at(u)) {
-            if (!edge.active) continue;
-            if (forbidden_nodes.count(edge.v)) continue;
-            if (forbidden_roads.count(edge.road_type)) continue;
+        unordered_set<int> forbidden_nodes;
+        unordered_set<string> forbidden_roads;
 
-            double weight = (mode == "time") ? edge.average_time : edge.length;
-            if (dist[u] + weight < dist[edge.v]) {
-                dist[edge.v] = dist[u] + weight;
-                parent[edge.v] = u;
-                pq.push({dist[edge.v], edge.v});
+        if (query.contains("constraints")) {
+            auto constraints = query["constraints"];
+            if (constraints.contains("forbidden_nodes")) {
+                for (auto &n : constraints["forbidden_nodes"])
+                    forbidden_nodes.insert(n.get<int>());  // ✅ fixed
+            }
+            if (constraints.contains("forbidden_road_types")) {
+                for (auto &r : constraints["forbidden_road_types"])
+                    forbidden_roads.insert(r.get<string>());  // ✅ fixed
             }
         }
-    }
 
-    if (dist[target] == INF) {
-        result["possible"] = false;
+        auto [possible, dist, path] = g.shortestPath(source, target, mode, forbidden_nodes, forbidden_roads);
+
+        result["possible"] = possible;
+        if (possible) {
+            if (mode == "time")
+                result["minimum_time"] = dist;
+            else
+                result["minimum_distance"] = dist;
+            result["path"] = path;
+        }
+
         return result;
     }
 
-    vector<int> path;
-    for (int v = target; v != source; v = parent[v])
-        path.push_back(v);
-    path.push_back(source);
-    reverse(path.begin(), path.end());
+    // 4️⃣ KNN
+    else if (type == "knn") {
+        int source = query["source"];
+        int k = query["k"];
+        string method = query["method"];
 
-    result["possible"] = true;
-    if (mode == "time")
-        result["minimum_time"] = dist[target];
-    else
-        result["minimum_distance"] = dist[target];
-    result["path"] = path;
-    return result;
-}
+        vector<pair<int, double>> res;
+        if (method == "euclidean") {
+            res = KNN_Euclidean(g, source, k);  // ✅ no g.
+        } else {
+            res = KNN_ShortestPath(g, source, k);  // ✅ no g.
+        }
 
-// ---- KNN ----
-json knn_query(const Graph& g, const json& query) {
-    json result;
-    result["id"] = query["id"];
-    int source = query["source"];
-    int k = query["k"];
-    string mode = query.value("mode", "euclidean");
+        json neighbors = json::array();
+        for (auto &p : res) {
+            neighbors.push_back({{"id", p.first}, {"distance", p.second}});
+        }
 
-    vector<pair<int, double>> neighbors;
-    if (mode == "euclidean")
-        neighbors = KNN_Euclidean(g, source, k);
-    else
-        neighbors = KNN_ShortestPath(g, source, k);
-
-    result["neighbors"] = json::array();
-    for (auto& [node, dist] : neighbors) {
-        json obj;
-        obj["node"] = node;
-        obj["distance"] = dist;
-        result["neighbors"].push_back(obj);
+        result["neighbors"] = neighbors;
+        return result;
     }
 
+    // Default
+    result["error"] = "Unknown query type";
     return result;
-}
-
-// ---- Dispatcher ----
-json process_query(const Graph& g, const json& query) {
-    string type = query.value("type", "");
-
-    if (type == "shortest_path")
-        return shortest_path_query(g, query);
-    else if (type == "knn")
-        return knn_query(g, query);
-    else {
-        json r;
-        r["status"] = "unknown_query_type";
-        return r;
-    }
 }
