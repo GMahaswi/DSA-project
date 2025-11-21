@@ -50,6 +50,41 @@ void Graph::loadGraph(const string& filename) {
     }
 }
 
+double Graph::travelTimeWithProfile(const Edge& e, double t_start) const {
+    if (e.speed_profile.empty())
+        return e.average_time;  
+
+    const int SLOT_SECS = 900;  
+    double remaining = e.length;
+    double t_current = t_start;
+
+    for (int iter = 0; iter < 1000 && remaining > 1e-6; ++iter) {
+        int slot = int(t_current / SLOT_SECS) % 96;
+        double v = e.speed_profile[slot];
+
+        if (v <= 1e-9) { 
+
+            t_current += 1.0;
+            continue;
+        }
+
+        double slot_end = (slot + 1) * SLOT_SECS;
+        double time_left = slot_end - t_current;
+        double dist_possible = v * time_left;
+
+        if (dist_possible >= remaining) {
+            double time_needed = remaining / v;
+            t_current += time_needed;
+            remaining = 0;
+        } else {
+            t_current += time_left;
+            remaining -= dist_possible;
+        }
+    }
+
+    return t_current - t_start;
+}
+
 bool Graph::removeEdge(int edge_id) {
     if (!edge_map.count(edge_id)) return false;
     Edge e = edge_map[edge_id];
@@ -159,7 +194,13 @@ tuple<bool, double, vector<int>> Graph::shortestPath(int source, int target,cons
             if (!e.active) continue;
             if (forbidden_roads.count(e.road_type)) continue;
             if (forbidden_nodes.count(e.v)) continue;
-            double w = (mode == "time") ? e.average_time : e.length;
+            double w;
+            if (mode == "time") {
+                w = travelTimeWithProfile(e, dist[u]);
+            } 
+            else {
+                w = e.length;
+            }
             if (dist[e.v] > d + w) {
                 dist[e.v] = d + w;
                 parent[e.v] = u;

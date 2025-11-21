@@ -27,7 +27,8 @@ public:
     bool removeEdge(int edge_id);
     bool modifyEdge(int edge_id, double new_length, double new_avg_time); // ✅ changed from void → bool
     double euclideanDistance(int a, int b) const;
-    
+    double travelTimeWithProfile(const Edge& e, double t_start) const;
+
     tuple<bool, double, vector<int>> shortestPath(
         int source, int target,
         const string& mode,
