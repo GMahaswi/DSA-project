@@ -77,6 +77,10 @@ json process_query(Graph& g, const json& query) {
         int edge_id = query["edge_id"];
         bool done = false;
         if (query.contains("patch")) {
+            if (query["patch"].empty()) {
+                result["done"] = false;
+                return result;
+            }
             double new_length = query["patch"].value("length", -1.0);
             double new_avg_time = query["patch"].value("average_time", -1.0);
             done = g.modifyEdge(edge_id, new_length, new_avg_time);
