@@ -32,6 +32,7 @@ void Graph::loadGraph(const string& filename) {
         edge.average_time = e["average_time"];
         edge.oneway = e["oneway"];
         edge.road_type = e["road_type"];
+        edge.active=true;
 
         if (e.contains("speed_profile"))
             for (auto& sp : e["speed_profile"])
@@ -42,6 +43,7 @@ void Graph::loadGraph(const string& filename) {
             Edge rev = edge;
             rev.u = edge.v;
             rev.v = edge.u;
+            rev.active=true;
             adj[rev.u].push_back(rev);
         }
         edge_map[edge.id] = edge;
@@ -62,7 +64,7 @@ bool Graph::removeEdge(int edge_id) {
         auto& back = adj[e.v];
         back.erase(remove_if(back.begin(), back.end(),
                              [&](const Edge& ed) {
-                                 return ed.v == e.u && ed.id == edge_id;
+                                 return ed.id == edge_id;
                              }),
                    back.end());
     }
@@ -75,34 +77,16 @@ bool Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) { //
         if (new_length > 0) e.length = new_length;
         if (new_avg_time > 0) e.average_time = new_avg_time;
         e.active = true;
-
-        for (Edge& ed : adj[e.u])
-            if (ed.id == edge_id) {
-                ed.length = e.length;
-                ed.average_time = e.average_time;
-            }
-        if (!e.oneway) {
-            for (Edge& ed : adj[e.v])
-                if (ed.v == e.u && ed.id == edge_id) {
-                    ed.length = e.length;
-                    ed.average_time = e.average_time;
-                }
-        }
         return true;
-    } else if (removed_edges.count(edge_id)) {
+    }  else if (removed_edges.count(edge_id)) {
         Edge e = removed_edges[edge_id];
         if (new_length > 0) e.length = new_length;
         if (new_avg_time > 0) e.average_time = new_avg_time;
         e.active = true;
 
-        adj[e.u].push_back(e);
-        if (!e.oneway) {
-            Edge rev = e;
-            rev.u = e.v;
-            rev.v = e.u;
-            adj[rev.u].push_back(rev);
-        }
-
+        adj[e.u].push_back({e.v, e.id});
+        if (!e.oneway)
+            adj[e.v].push_back({e.u, e.id});
         edge_map[edge_id] = e;
         removed_edges.erase(edge_id);
         return true;
@@ -111,7 +95,7 @@ bool Graph::modifyEdge(int edge_id, double new_length, double new_avg_time) { //
 }
 
 double Graph::euclideanDistance(int a, int b) const {
-    const double R = 6371.0;
+    const double R = 6371000.0;
     auto &na = coords.at(a);
     auto &nb = coords.at(b);
 
@@ -131,7 +115,7 @@ double Graph::euclideanDistance(int a, int b) const {
     return R * c;
 }
 double Graph::euclideanDistanceLatLon(double lat1, double lon1, double lat2, double lon2) const {
-    const double R = 6371.0; // km
+    const double R = 6371000.0; 
     lat1 = lat1 * M_PI / 180.0;
     lon1 = lon1 * M_PI / 180.0;
     lat2 = lat2 * M_PI / 180.0;
@@ -146,12 +130,14 @@ double Graph::euclideanDistanceLatLon(double lat1, double lon1, double lat2, dou
     return R * c;
 }
 
-tuple<bool, double, vector<int>> Graph::shortestPath(
-    int source, int target,
-    const string& mode,
-    const unordered_set<int>& forbidden_nodes,
-    const unordered_set<string>& forbidden_roads
-) const {
+
+tuple<bool, double, vector<int>> Graph::shortestPath(int source, int target,const string& mode,const unordered_set<int>& forbidden_nodes,const unordered_set<string>& forbidden_roads) const {
+    if (forbidden_nodes.count(source) || forbidden_nodes.count(target))
+        return {false, -1.0, {}};
+
+    if (source == target)
+        return {true, 0.0, {source}};  
+        
     unordered_map<int, double> dist;
     unordered_map<int, int> parent;
     for (auto& p : coords)
@@ -166,13 +152,13 @@ tuple<bool, double, vector<int>> Graph::shortestPath(
         auto [d, u] = pq.top();
         pq.pop();
         if (d > dist[u]) continue;
-        if (u == target) break;
         if (forbidden_nodes.count(u)) continue;
         if (!adj.count(u)) continue;
 
         for (auto& e : adj.at(u)) {
             if (!e.active) continue;
             if (forbidden_roads.count(e.road_type)) continue;
+            if (forbidden_nodes.count(e.v)) continue;
             double w = (mode == "time") ? e.average_time : e.length;
             if (dist[e.v] > d + w) {
                 dist[e.v] = d + w;
@@ -186,10 +172,14 @@ tuple<bool, double, vector<int>> Graph::shortestPath(
         return {false, -1.0, {}};
 
     vector<int> path;
-    for (int cur = target; cur != source; cur = parent[cur])
+    int cur = target;
+    while (cur != source) {
+        if (!parent.count(cur))
+            return {false, -1.0, {}};
         path.push_back(cur);
+        cur = parent[cur];
+    }
     path.push_back(source);
     reverse(path.begin(), path.end());
-
     return {true, dist[target], path};
 }

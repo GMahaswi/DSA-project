@@ -1,0 +1,143 @@
+{
+    "meta": {
+        "id": "queries_set_3"
+    },
+    "events": [
+        {
+            "id": 1,
+            "type": "knn",
+            "poi": "pharmacy",
+            "query_point": {
+                "lat": 10.593036,
+                "lon": 81.202334
+            },
+            "k": 1,
+            "metric": "euclidean"
+        },
+        {
+            "id": 2,
+            "type": "shortest_path",
+            "source": 4,
+            "target": 18,
+            "mode": "time"
+        },
+        {
+            "id": 3,
+            "type": "knn",
+            "poi": "atm",
+            "query_point": {
+                "lat": 19.670725,
+                "lon": 79.446519
+            },
+            "k": 2,
+            "metric": "shortest_path"
+        },
+        {
+            "id": 4,
+            "type": "remove_edge",
+            "edge_id": 7
+        },
+        {
+            "id": 5,
+            "type": "modify_edge",
+            "edge_id": 21,
+            "patch": {
+                "length": 396.21
+            }
+        },
+        {
+            "id": 6,
+            "type": "remove_edge",
+            "edge_id": 5
+        },
+        {
+            "id": 7,
+            "type": "shortest_path",
+            "source": 1,
+            "target": 12,
+            "mode": "time"
+        },
+        {
+            "id": 8,
+            "type": "modify_edge",
+            "edge_id": 17,
+            "patch": {
+                "length": 193.9,
+                "average_time": 10.56
+            }
+        },
+        {
+            "id": 9,
+            "type": "shortest_path",
+            "source": 2,
+            "target": 9,
+            "mode": "distance",
+            "constraints": {
+                "forbidden_nodes": [
+                    3,
+                    9,
+                    7
+                ],
+                "forbidden_road_types": [
+                    "tertiary"
+                ]
+            }
+        },
+        {
+            "id": 10,
+            "type": "remove_edge",
+            "edge_id": 8
+        },
+        {
+            "id": 11,
+            "type": "remove_edge",
+            "edge_id": 23
+        },
+        {
+            "id": 12,
+            "type": "modify_edge",
+            "edge_id": 14,
+            "patch": {
+                "length": 258.56,
+                "average_time": 86.65,
+                "road_type": "local"
+            }
+        },
+        {
+            "id": 13,
+            "type": "shortest_path",
+            "source": 17,
+            "target": 16,
+            "mode": "distance",
+            "constraints": {
+                "forbidden_road_types": [
+                    "secondary"
+                ]
+            }
+        },
+        {
+            "id": 14,
+            "type": "shortest_path",
+            "source": 7,
+            "target": 17,
+            "mode": "distance",
+            "constraints": {
+                "forbidden_nodes": [
+                    1,
+                    6
+                ]
+            }
+        },
+        {
+            "id": 15,
+            "type": "knn",
+            "poi": "hotel",
+            "query_point": {
+                "lat": 33.337283,
+                "lon": 72.905621
+            },
+            "k": 2,
+            "metric": "shortest_path"
+        }
+    ]
+}
