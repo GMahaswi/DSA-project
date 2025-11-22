@@ -4,43 +4,12 @@
     "description": "Phase-2 queries for small Bangalore map sample"
   },
   "events": [
-    {
-      "id": 37,
-      "type": "modify_edge",
-      "edge_id": 103,
-      "patch": { "length": 1.2 }
-    },
-    {
-      "id": 1,
-      "type": "shortest_path",
-      "source": 1,
-      "target": 4,
-      "mode": "time",
-      "constraints": {
-        "forbidden_nodes": [],
-        "forbidden_road_types": ["secondary"]
-      }
-    },
-    {
-      "id": 2,
-      "type": "shortest_path",
-      "source": 1,
-      "target": 3,
-      "mode": "distance"
-    },
-    {
-    "type": "knn",
-    "id": 2,
-    "poi": "restaurant",
-    "query_point": { "lat": 19.07, "lon": 72.87 },
-    "k": 5,
-    "metric": "shortest_path"
-    },
+    
     {
       "type": "k_shortest_paths",
       "id": 10,
-      "source": 1,
-      "target": 4,
+      "source": 4,
+      "target": 2,
       "k": 2,
       "mode": "distance"
     },

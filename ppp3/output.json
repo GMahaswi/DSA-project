@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "test_id": "phase3-basic-demo"
+},
+  "results": [
+{
+    "assignments": [
+        {
+            "driver_id": 0,
+            "order_ids": [
+                101,
+                103,
+                102
+            ],
+            "route": [
+                0,
+                1,
+                2,
+                3,
+                5,
+                4,
+                5,
+                3,
+                2,
+                3,
+                5
+            ]
+        },
+        {
+            "driver_id": 1,
+            "order_ids": [],
+            "route": [
+                0
+            ]
+        }
+    ],
+    "metrics": {
+        "max_delivery_time_s": 62.2,
+        "total_delivery_time_s": 62.2
+    },
+    "processing_time": 0.201864
+}
+  ]
+}

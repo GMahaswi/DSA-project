@@ -1,0 +1,21 @@
+{
+  "meta": { "test_id": "phase3-basic-demo" },
+
+  "events": [
+    {
+      "id": 1,
+      "type": "delivery_schedule",
+
+      "orders": [
+        { "order_id": 101, "pickup": 1, "dropoff": 3 },
+        { "order_id": 102, "pickup": 2, "dropoff": 5 },
+        { "order_id": 103, "pickup": 4, "dropoff": 3 }
+      ],
+
+      "fleet": {
+        "num_delievery_guys": 2,
+        "depot_node": 0
+      }
+    }
+  ]
+}
